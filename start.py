@@ -4,6 +4,7 @@ import pygame as pg
 CELL_SIZE = 25
 W_CELL_COUNT, H_CELL_COUNT = 50, 30
 W, H = W_CELL_COUNT * (CELL_SIZE + 1) + 1, H_CELL_COUNT * (CELL_SIZE + 1) + 1
+DELTA_CELLS = [(d_row, d_col) for d_row in range(-1, 2) for d_col in range(-1, 2) if d_row != 0 or d_col != 0]
 DELTA_COLOR = 15
 BACKGROUND_COLOR = (0, 0, 0)
 GRID_COLOR = (50, 60, 50)
@@ -41,6 +42,40 @@ def draw_cells(surface, cells):
         pg.draw.rect(surface, color, cell_data['rect'])
 
 
+def next_state(cells):
+    for (row, col), cell_data in cells.items():
+        # Подсчитываем количество соседей у клетки
+        around_count = 0
+        for d_row, d_col in DELTA_CELLS:
+            beside_cell = cells.get((row + d_row, col + d_col), None)
+            if not beside_cell:
+                continue
+            if beside_cell['content']:
+                around_count += 1
+
+        # В зависимости от количества соседей определяем состояние клетки в следующем "поколении"
+        if cell_data['content']:
+            if around_count < 2 or around_count > 3:
+                cell_data['command'] = 'death'
+            else:
+                cell_data['command'] = '+age'
+        else:
+            if around_count == 3:
+                cell_data['command'] = '+age'
+
+    # Обновляем состояния клеток (переходим с следующему "поколению")
+    for _, cell_data in cells.items():
+        command = cell_data['command']
+
+        if not command:
+            continue
+        if command == 'death':
+            cell_data['content'] = 0
+        elif command == '+age':
+            cell_data['content'] = cell_data['content'] + 1 if cell_data['content'] < 9 else 0
+        cell_data['command'] = ''
+
+
 def main():
     pg.init()
     sc = pg.display.set_mode((W, H))
@@ -48,6 +83,7 @@ def main():
 
     cells = create_cells()
 
+    frame_count = 0
     while True:
         events = pg.event.get()
         for event in events:
@@ -60,6 +96,10 @@ def main():
         pg.display.update()
 
         clock.tick(FPS)
+        frame_count += 1
+        if frame_count == FPS:
+            next_state(cells)
+            frame_count = 0
 
 
 if __name__ == '__main__':
